@@ -80,13 +80,14 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
           },
         ],
         mode: "payment",
-        ui_mode: "embedded",
+        ui_mode: "embedded_page",
         return_url: data.returnUrl,
         payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
         metadata: { teamId: team.id, team_name: data.team_name },
       });
 
-      if (!session.client_secret) throw new Error("Falha ao iniciar checkout");
+      console.log("Stripe session created:", { id: session.id, ui_mode: session.ui_mode, hasClientSecret: !!session.client_secret, url: session.url });
+      if (!session.client_secret) throw new Error(`Falha ao iniciar checkout (ui_mode=${session.ui_mode}, url=${session.url ? "yes" : "no"})`);
 
       // Save session id for later reconciliation
       await supabaseAdmin
