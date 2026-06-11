@@ -49,8 +49,7 @@ const registrationSchema = z.object({
 });
 
 type Result =
-  | { clientSecret: string; redirectUrl?: string; teamId: string }
-  | { clientSecret?: string; redirectUrl: string; teamId: string }
+  | { clientSecret: string; teamId: string }
   | { error: string };
 
 export const createRegistrationCheckout = createServerFn({ method: "POST" })
@@ -86,45 +85,27 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
       const env = data.environment as StripeEnv;
       const stripe = createStripeClient(env);
 
-      // Try embedded mode first; if gateway/API rejects ui_mode, fall back to hosted redirect.
-      let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>;
-      try {
-        session = await stripe.checkout.sessions.create({
-          line_items: [
-            {
-              price_data: {
-                currency: "brl",
-                unit_amount: 15000,
-                product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
-              },
-              quantity: 1,
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: "brl",
+              unit_amount: 15000,
+              product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
             },
-          ],
-          mode: "payment",
-          ui_mode: "embedded_page",
-          return_url: data.returnUrl,
-          payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
-          metadata: { teamId: team.id, team_name: data.team_name },
-        });
-      } catch (innerErr) {
-        console.warn("Embedded checkout failed, falling back to hosted:", innerErr);
-        session = await stripe.checkout.sessions.create({
-          line_items: [
-            {
-              price_data: {
-                currency: "brl",
-                unit_amount: 15000,
-                product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
-              },
-              quantity: 1,
-            },
-          ],
-          mode: "payment",
-          success_url: data.returnUrl,
-          cancel_url: data.returnUrl.split("?")[0],
-          payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
-          metadata: { teamId: team.id, team_name: data.team_name },
-        });
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        ui_mode: "embedded_page",
+        return_url: data.returnUrl,
+        payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
+        metadata: { teamId: team.id, team_name: data.team_name },
+      });
+
+      const gatewayError = session as unknown as { type?: string; message?: string };
+      if (!session.id && gatewayError.message) {
+        throw new Error(gatewayError.message);
       }
 
       console.log("Stripe session created:", {
@@ -143,10 +124,7 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
       if (session.client_secret) {
         return { clientSecret: session.client_secret, teamId: team.id };
       }
-      if (session.url) {
-        return { redirectUrl: session.url, teamId: team.id };
-      }
-      throw new Error("Stripe não retornou client_secret nem URL de checkout");
+      throw new Error("Stripe não retornou client_secret para abrir a tela de pagamento");
     } catch (error) {
       console.error("createRegistrationCheckout error:", error);
       return { error: getStripeErrorMessage(error) };
