@@ -10,7 +10,17 @@ const athleteSchema = z.object({
   name: z.string().trim().min(2).max(120),
   whatsapp: z.string().trim().min(8).max(30),
   rg: z.string().trim().min(3).max(30),
-  birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  birth_date: z
+    .string()
+    .trim()
+    .refine(
+      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}\/\d{2}\/\d{4}$/.test(value),
+      "Informe uma data de nascimento válida",
+    )
+    .transform((value) => {
+      const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+      return match ? `${match[3]}-${match[1]}-${match[2]}` : value;
+    }),
 });
 
 const registrationSchema = z.object({
