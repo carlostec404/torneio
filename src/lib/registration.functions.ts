@@ -57,18 +57,26 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
       // Create Stripe Checkout Session
       const env = data.environment as StripeEnv;
       const stripe = createStripeClient(env);
-      const prices = await stripe.prices.list({ lookup_keys: ["inscricao_torneio_150"] });
-      if (!prices.data.length) throw new Error("Preço de inscrição não encontrado");
-      const price = prices.data[0];
 
       const session = await stripe.checkout.sessions.create({
-        line_items: [{ price: price.id, quantity: 1 }],
+        line_items: [
+          {
+            price_data: {
+              currency: "brl",
+              unit_amount: 15000,
+              product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
+            },
+            quantity: 1,
+          },
+        ],
         mode: "payment",
-        ui_mode: "embedded_page",
+        ui_mode: "embedded",
         return_url: data.returnUrl,
         payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
         metadata: { teamId: team.id, team_name: data.team_name },
       });
+
+      if (!session.client_secret) throw new Error("Falha ao iniciar checkout");
 
       // Save session id for later reconciliation
       await supabaseAdmin
@@ -76,7 +84,7 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
         .update({ stripe_session_id: session.id })
         .eq("id", team.id);
 
-      return { clientSecret: session.client_secret ?? "", teamId: team.id };
+      return { clientSecret: session.client_secret, teamId: team.id };
     } catch (error) {
       console.error("createRegistrationCheckout error:", error);
       return { error: getStripeErrorMessage(error) };
