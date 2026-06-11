@@ -31,10 +31,8 @@ export const rejectTeam = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("teams")
-      .update({ status: "rejected" })
-      .eq("id", data.teamId);
+    await supabaseAdmin.from("athletes").delete().eq("team_id", data.teamId);
+    const { error } = await supabaseAdmin.from("teams").delete().eq("id", data.teamId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
