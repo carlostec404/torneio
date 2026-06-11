@@ -27,7 +27,7 @@ function Inscricao() {
   const submit = useServerFn(createRegistrationCheckout);
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
-  const [athletes, setAthletes] = useState<Athlete[]>([emptyAthlete(), emptyAthlete(), emptyAthlete()]);
+  const [athletes, setAthletes] = useState<Athlete[]>([emptyAthlete()]);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
