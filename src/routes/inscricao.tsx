@@ -147,7 +147,7 @@ function Inscricao() {
             <div key={idx} className="bg-white rounded-lg p-5 border border-black/10 space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold">Atleta {idx + 1}</h3>
-                {athletes.length > 3 && (
+                {athletes.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeAthlete(idx)}
