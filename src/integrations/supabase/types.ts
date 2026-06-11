@@ -16,31 +16,31 @@ export type Database = {
     Tables: {
       athletes: {
         Row: {
-          birth_date: string
+          birth_date: string | null
           created_at: string
           id: string
           name: string
-          rg: string
+          rg: string | null
           team_id: string
-          whatsapp: string
+          whatsapp: string | null
         }
         Insert: {
-          birth_date: string
+          birth_date?: string | null
           created_at?: string
           id?: string
           name: string
-          rg: string
+          rg?: string | null
           team_id: string
-          whatsapp: string
+          whatsapp?: string | null
         }
         Update: {
-          birth_date?: string
+          birth_date?: string | null
           created_at?: string
           id?: string
           name?: string
-          rg?: string
+          rg?: string | null
           team_id?: string
-          whatsapp?: string
+          whatsapp?: string | null
         }
         Relationships: [
           {
@@ -131,6 +131,7 @@ export type Database = {
       teams: {
         Row: {
           captain_name: string
+          captain_whatsapp: string | null
           comprovante_url: string | null
           created_at: string
           id: string
@@ -143,6 +144,7 @@ export type Database = {
         }
         Insert: {
           captain_name: string
+          captain_whatsapp?: string | null
           comprovante_url?: string | null
           created_at?: string
           id?: string
@@ -155,6 +157,7 @@ export type Database = {
         }
         Update: {
           captain_name?: string
+          captain_whatsapp?: string | null
           comprovante_url?: string | null
           created_at?: string
           id?: string
