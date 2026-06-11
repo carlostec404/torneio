@@ -67,10 +67,6 @@ function Inscricao() {
         },
       });
       if ("error" in result) throw new Error(result.error);
-      if ("redirectUrl" in result && result.redirectUrl) {
-        window.location.href = result.redirectUrl;
-        return;
-      }
       if (result.clientSecret) {
         setClientSecret(result.clientSecret);
       } else {
