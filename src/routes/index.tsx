@@ -27,8 +27,7 @@ function Index() {
     <main className="min-h-screen flex flex-col" style={{ backgroundColor: "#fcfbf8", color: TEXT }}>
       <header className="px-6 py-4 flex items-center justify-between border-b border-black/5">
         <div className="text-lg font-bold tracking-tight">
-          <span style={{ color: PRIMARY }}>⚽ </span>
-          Torneio de Rua
+          {"\n"}
         </div>
         <Link to="/auth" className="text-sm font-medium hover:underline" style={{ color: TEXT }}>
           Entrar
