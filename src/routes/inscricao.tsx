@@ -42,7 +42,7 @@ function Inscricao() {
   };
 
   const removeAthlete = (idx: number) => {
-    if (athletes.length <= 3) return;
+    if (athletes.length <= 1) return;
     setAthletes(athletes.filter((_, i) => i !== idx));
   };
 
