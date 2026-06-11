@@ -52,6 +52,61 @@ export type Database = {
           },
         ]
       }
+      matches: {
+        Row: {
+          created_at: string
+          id: string
+          position: number
+          round: number
+          team_a_id: string | null
+          team_b_id: string | null
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position: number
+          round: number
+          team_a_id?: string | null
+          team_b_id?: string | null
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: number
+          round?: number
+          team_a_id?: string | null
+          team_b_id?: string | null
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_team_a_id_fkey"
+            columns: ["team_a_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_team_b_id_fkey"
+            columns: ["team_b_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -76,9 +131,11 @@ export type Database = {
       teams: {
         Row: {
           captain_name: string
+          comprovante_url: string | null
           created_at: string
           id: string
           paid_at: string | null
+          seed: number | null
           status: Database["public"]["Enums"]["team_status"]
           stripe_session_id: string | null
           team_name: string
@@ -86,9 +143,11 @@ export type Database = {
         }
         Insert: {
           captain_name: string
+          comprovante_url?: string | null
           created_at?: string
           id?: string
           paid_at?: string | null
+          seed?: number | null
           status?: Database["public"]["Enums"]["team_status"]
           stripe_session_id?: string | null
           team_name: string
@@ -96,9 +155,11 @@ export type Database = {
         }
         Update: {
           captain_name?: string
+          comprovante_url?: string | null
           created_at?: string
           id?: string
           paid_at?: string | null
+          seed?: number | null
           status?: Database["public"]["Enums"]["team_status"]
           stripe_session_id?: string | null
           team_name?: string
