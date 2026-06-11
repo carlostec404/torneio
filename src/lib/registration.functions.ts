@@ -16,7 +16,7 @@ const athleteSchema = z.object({
 const registrationSchema = z.object({
   team_name: z.string().trim().min(2).max(120),
   captain_name: z.string().trim().min(2).max(120),
-  athletes: z.array(athleteSchema).min(3).max(6),
+  athletes: z.array(athleteSchema).min(1).max(6),
   environment: z.enum(["sandbox", "live"]),
   returnUrl: z.string().url(),
 });

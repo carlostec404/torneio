@@ -27,7 +27,7 @@ function Inscricao() {
   const submit = useServerFn(createRegistrationCheckout);
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
-  const [athletes, setAthletes] = useState<Athlete[]>([emptyAthlete(), emptyAthlete(), emptyAthlete()]);
+  const [athletes, setAthletes] = useState<Athlete[]>([emptyAthlete()]);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,7 +42,7 @@ function Inscricao() {
   };
 
   const removeAthlete = (idx: number) => {
-    if (athletes.length <= 3) return;
+    if (athletes.length <= 1) return;
     setAthletes(athletes.filter((_, i) => i !== idx));
   };
 
@@ -147,7 +147,7 @@ function Inscricao() {
             <div key={idx} className="bg-white rounded-lg p-5 border border-black/10 space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold">Atleta {idx + 1}</h3>
-                {athletes.length > 3 && (
+                {athletes.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeAthlete(idx)}
