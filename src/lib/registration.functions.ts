@@ -6,20 +6,37 @@ import {
   getStripeErrorMessage,
 } from "@/lib/stripe.server";
 
+function normalizeBirthDate(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  // ISO: YYYY-MM-DD
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(v);
+  if (m) {
+    const [, y, mo, d] = m;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  // DD/MM/YYYY or DD-MM-YYYY
+  m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(v);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return null;
+}
+
 const athleteSchema = z.object({
   name: z.string().trim().min(2).max(120),
   whatsapp: z.string().trim().min(8).max(30),
   rg: z.string().trim().min(3).max(30),
   birth_date: z
     .string()
-    .trim()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}\/\d{2}\/\d{4}$/.test(value),
-      "Informe uma data de nascimento válida",
-    )
-    .transform((value) => {
-      const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
-      return match ? `${match[3]}-${match[1]}-${match[2]}` : value;
+    .transform((v, ctx) => {
+      const norm = normalizeBirthDate(v);
+      if (!norm) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Informe uma data de nascimento válida" });
+        return z.NEVER;
+      }
+      return norm;
     }),
 });
 
