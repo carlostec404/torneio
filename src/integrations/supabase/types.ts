@@ -14,16 +14,135 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      athletes: {
+        Row: {
+          birth_date: string
+          created_at: string
+          id: string
+          name: string
+          rg: string
+          team_id: string
+          whatsapp: string
+        }
+        Insert: {
+          birth_date: string
+          created_at?: string
+          id?: string
+          name: string
+          rg: string
+          team_id: string
+          whatsapp: string
+        }
+        Update: {
+          birth_date?: string
+          created_at?: string
+          id?: string
+          name?: string
+          rg?: string
+          team_id?: string
+          whatsapp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athletes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          captain_name: string
+          created_at: string
+          id: string
+          paid_at: string | null
+          status: Database["public"]["Enums"]["team_status"]
+          stripe_session_id: string | null
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          captain_name: string
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          status?: Database["public"]["Enums"]["team_status"]
+          stripe_session_id?: string | null
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          captain_name?: string
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          status?: Database["public"]["Enums"]["team_status"]
+          stripe_session_id?: string | null
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin"
+      team_status: "pending" | "paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +269,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin"],
+      team_status: ["pending", "paid"],
+    },
   },
 } as const
