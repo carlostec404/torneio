@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import QRCode from "qrcode";
 import { createRegistration } from "@/lib/registration.functions";
+import { buildPixPayload } from "@/lib/pix";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/inscricao")({
@@ -17,26 +19,37 @@ export const Route = createFileRoute("/inscricao")({
 const PRIMARY = "#E91425";
 const TEXT = "#141414";
 const PIX_KEY = "11092675418";
-const PIX_VALUE = "R$ 150,00";
+const PIX_AMOUNT = 150;
+const PIX_VALUE_LABEL = "R$ 150,00";
 
-type Athlete = { name: string; whatsapp: string; rg: string; birth_date: string };
-const emptyAthlete = (): Athlete => ({ name: "", whatsapp: "", rg: "", birth_date: "" });
+type Athlete = { name: string };
+const emptyAthlete = (): Athlete => ({ name: "" });
 
 function Inscricao() {
   const submit = useServerFn(createRegistration);
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
+  const [captainWhatsapp, setCaptainWhatsapp] = useState("");
   const [athletes, setAthletes] = useState<Athlete[]>([emptyAthlete()]);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
-  const updateAthlete = (idx: number, field: keyof Athlete, value: string) => {
-    setAthletes((prev) => prev.map((a, i) => (i === idx ? { ...a, [field]: value } : a)));
+  useEffect(() => {
+    const payload = buildPixPayload({
+      key: PIX_KEY,
+      merchantName: "TORNEIO FUTEBOL",
+      merchantCity: "SAO PAULO",
+      amount: PIX_AMOUNT,
+    });
+    QRCode.toDataURL(payload, { width: 240, margin: 1 }).then(setQrDataUrl).catch(() => {});
+  }, []);
+
+  const updateAthlete = (idx: number, value: string) => {
+    setAthletes((prev) => prev.map((a, i) => (i === idx ? { name: value } : a)));
   };
-
   const addAthlete = () => {
     if (athletes.length >= 6) return;
     setAthletes([...athletes, emptyAthlete()]);
@@ -44,12 +57,6 @@ function Inscricao() {
   const removeAthlete = (idx: number) => {
     if (athletes.length <= 1) return;
     setAthletes(athletes.filter((_, i) => i !== idx));
-  };
-
-  const copyPix = async () => {
-    await navigator.clipboard.writeText(PIX_KEY);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -77,12 +84,8 @@ function Inscricao() {
         data: {
           team_name: teamName.trim(),
           captain_name: captainName.trim(),
-          athletes: athletes.map((a) => ({
-            name: a.name.trim(),
-            whatsapp: a.whatsapp.trim(),
-            rg: a.rg.trim(),
-            birth_date: a.birth_date,
-          })),
+          captain_whatsapp: captainWhatsapp.trim(),
+          athletes: athletes.map((a) => ({ name: a.name.trim() })),
           comprovante_path: path,
         },
       });
@@ -123,17 +126,18 @@ function Inscricao() {
           Inscreva sua <span style={{ color: PRIMARY }}>equipe</span>
         </h1>
 
-        {/* Pix info */}
-        <div className="bg-white rounded-lg p-5 border-2" style={{ borderColor: PRIMARY }}>
-          <h2 className="font-bold text-lg" style={{ color: PRIMARY }}>Pagamento via Pix — {PIX_VALUE}</h2>
-          <p className="text-sm mt-2">Faça o Pix para a chave abaixo (CPF) e anexe o comprovante no fim do formulário.</p>
-          <div className="mt-3 flex items-center gap-2">
-            <code className="flex-1 bg-black/5 rounded px-3 py-2 text-sm font-mono break-all">{PIX_KEY}</code>
-            <button type="button" onClick={copyPix} className="rounded-full px-4 py-2 text-sm font-bold text-white" style={{ backgroundColor: PRIMARY }}>
-              {copied ? "Copiado!" : "Copiar"}
-            </button>
+        {/* Pix QR */}
+        <div className="bg-white rounded-lg p-5 border-2 flex flex-col items-center text-center" style={{ borderColor: PRIMARY }}>
+          <h2 className="font-bold text-lg" style={{ color: PRIMARY }}>Pagamento via Pix — {PIX_VALUE_LABEL}</h2>
+          <p className="text-sm mt-2">Escaneie o QR Code abaixo com o app do seu banco e anexe o comprovante.</p>
+          <div className="mt-4 bg-white p-2 rounded border border-black/10">
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt="QR Code Pix" width={240} height={240} />
+            ) : (
+              <div className="w-[240px] h-[240px] flex items-center justify-center text-xs opacity-60">Gerando QR Code...</div>
+            )}
           </div>
-          <p className="text-xs mt-2 opacity-70">Tipo: CPF • Valor: {PIX_VALUE}</p>
+          <p className="text-xs mt-3 opacity-70">Valor: {PIX_VALUE_LABEL}</p>
         </div>
 
         <div className="space-y-4 bg-white rounded-lg p-5 border border-black/10">
@@ -141,9 +145,15 @@ function Inscricao() {
             <label className="block text-sm font-semibold mb-1">Nome da equipe *</label>
             <input required value={teamName} onChange={(e) => setTeamName(e.target.value)} maxLength={120} className="w-full rounded border border-black/15 px-3 py-2" />
           </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1">Nome do capitão *</label>
-            <input required value={captainName} onChange={(e) => setCaptainName(e.target.value)} maxLength={120} className="w-full rounded border border-black/15 px-3 py-2" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold mb-1">Nome do capitão *</label>
+              <input required value={captainName} onChange={(e) => setCaptainName(e.target.value)} maxLength={120} className="w-full rounded border border-black/15 px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1">WhatsApp do capitão *</label>
+              <input required value={captainWhatsapp} onChange={(e) => setCaptainWhatsapp(e.target.value)} placeholder="(99) 99999-9999" maxLength={30} className="w-full rounded border border-black/15 px-3 py-2" />
+            </div>
           </div>
         </div>
 
@@ -163,29 +173,14 @@ function Inscricao() {
                   <button type="button" onClick={() => removeAthlete(idx)} className="text-xs text-red-600 hover:underline">Remover</button>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold mb-1">Nome completo *</label>
-                  <input required value={a.name} onChange={(e) => updateAthlete(idx, "name", e.target.value)} maxLength={120} className="w-full rounded border border-black/15 px-3 py-2" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1">WhatsApp *</label>
-                  <input required value={a.whatsapp} onChange={(e) => updateAthlete(idx, "whatsapp", e.target.value)} placeholder="(99) 99999-9999" maxLength={30} className="w-full rounded border border-black/15 px-3 py-2" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1">RG *</label>
-                  <input required value={a.rg} onChange={(e) => updateAthlete(idx, "rg", e.target.value)} maxLength={30} className="w-full rounded border border-black/15 px-3 py-2" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold mb-1">Data de nascimento *</label>
-                  <input required type="text" inputMode="numeric" placeholder="DD/MM/AAAA" value={a.birth_date} onChange={(e) => updateAthlete(idx, "birth_date", e.target.value)} maxLength={10} className="w-full rounded border border-black/15 px-3 py-2" />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Nome completo *</label>
+                <input required value={a.name} onChange={(e) => updateAthlete(idx, e.target.value)} maxLength={120} className="w-full rounded border border-black/15 px-3 py-2" />
               </div>
             </div>
           ))}
         </div>
 
-        {/* Comprovante upload */}
         <div className="bg-white rounded-lg p-5 border border-black/10">
           <label className="block text-sm font-semibold mb-2">Comprovante do Pix * (imagem ou PDF, até 8 MB)</label>
           <input
