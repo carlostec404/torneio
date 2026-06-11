@@ -10,7 +10,17 @@ const athleteSchema = z.object({
   name: z.string().trim().min(2).max(120),
   whatsapp: z.string().trim().min(8).max(30),
   rg: z.string().trim().min(3).max(30),
-  birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  birth_date: z
+    .string()
+    .trim()
+    .refine(
+      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{2}\/\d{2}\/\d{4}$/.test(value),
+      "Informe uma data de nascimento válida",
+    )
+    .transform((value) => {
+      const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+      return match ? `${match[3]}-${match[1]}-${match[2]}` : value;
+    }),
 });
 
 const registrationSchema = z.object({
@@ -57,12 +67,18 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
       // Create Stripe Checkout Session
       const env = data.environment as StripeEnv;
       const stripe = createStripeClient(env);
-      const prices = await stripe.prices.list({ lookup_keys: ["inscricao_torneio_150"] });
-      if (!prices.data.length) throw new Error("Preço de inscrição não encontrado");
-      const price = prices.data[0];
 
       const session = await stripe.checkout.sessions.create({
-        line_items: [{ price: price.id, quantity: 1 }],
+        line_items: [
+          {
+            price_data: {
+              currency: "brl",
+              unit_amount: 15000,
+              product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
+            },
+            quantity: 1,
+          },
+        ],
         mode: "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
@@ -70,13 +86,15 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
         metadata: { teamId: team.id, team_name: data.team_name },
       });
 
+      if (!session.client_secret) throw new Error("Falha ao iniciar checkout");
+
       // Save session id for later reconciliation
       await supabaseAdmin
         .from("teams")
         .update({ stripe_session_id: session.id })
         .eq("id", team.id);
 
-      return { clientSecret: session.client_secret ?? "", teamId: team.id };
+      return { clientSecret: session.client_secret, teamId: team.id };
     } catch (error) {
       console.error("createRegistrationCheckout error:", error);
       return { error: getStripeErrorMessage(error) };
