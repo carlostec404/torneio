@@ -99,6 +99,10 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
         mode: "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
+        payment_method_types: ["pix"],
+        payment_method_options: {
+          pix: { expires_after_seconds: 3600 },
+        },
         payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
         metadata: { teamId: team.id, team_name: data.team_name },
       });
