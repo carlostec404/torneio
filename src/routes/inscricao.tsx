@@ -67,7 +67,15 @@ function Inscricao() {
         },
       });
       if ("error" in result) throw new Error(result.error);
-      setClientSecret(result.clientSecret);
+      if ("redirectUrl" in result && result.redirectUrl) {
+        window.location.href = result.redirectUrl;
+        return;
+      }
+      if (result.clientSecret) {
+        setClientSecret(result.clientSecret);
+      } else {
+        throw new Error("Resposta inesperada do servidor de pagamento");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado");
     } finally {
