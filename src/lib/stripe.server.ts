@@ -25,14 +25,17 @@ export function createStripeClient(env: StripeEnv): Stripe {
     httpClient: Stripe.createFetchHttpClient((input, init) => {
       const stripeUrl = input instanceof Request ? input.url : input.toString();
       const gatewayUrl = stripeUrl.replace("https://api.stripe.com", GATEWAY_STRIPE_BASE);
+      const headers = Object.fromEntries(
+        new Headers(
+          init?.headers ?? (input instanceof Request ? input.headers : undefined),
+        ).entries(),
+      );
+      delete headers.authorization;
+
       return fetch(gatewayUrl, {
         ...init,
         headers: {
-          ...Object.fromEntries(
-            new Headers(
-              init?.headers ?? (input instanceof Request ? input.headers : undefined),
-            ).entries(),
-          ),
+          ...headers,
           "X-Connection-Api-Key": connectionApiKey,
           "Lovable-API-Key": lovableApiKey,
         },
