@@ -31,14 +31,15 @@ const registrationSchema = z.object({
   returnUrl: z.string().url(),
 });
 
-type Result = { clientSecret: string; teamId: string } | { error: string };
+type Result =
+  | { clientSecret: string; redirectUrl?: string; teamId: string }
+  | { clientSecret?: string; redirectUrl: string; teamId: string }
+  | { error: string };
 
 export const createRegistrationCheckout = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => registrationSchema.parse(data))
   .handler(async ({ data }): Promise<Result> => {
     try {
-      // Use admin client to insert pending team (RLS allows anon insert anyway,
-      // but admin is needed to read back & link properly).
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
       // Insert pending team
@@ -68,25 +69,53 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
       const env = data.environment as StripeEnv;
       const stripe = createStripeClient(env);
 
-      const session = await stripe.checkout.sessions.create({
-        line_items: [
-          {
-            price_data: {
-              currency: "brl",
-              unit_amount: 15000,
-              product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
+      // Try embedded mode first; if gateway/API rejects ui_mode, fall back to hosted redirect.
+      let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>;
+      try {
+        session = await stripe.checkout.sessions.create({
+          line_items: [
+            {
+              price_data: {
+                currency: "brl",
+                unit_amount: 15000,
+                product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
+              },
+              quantity: 1,
             },
-            quantity: 1,
-          },
-        ],
-        mode: "payment",
-        ui_mode: "embedded_page",
-        return_url: data.returnUrl,
-        payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
-        metadata: { teamId: team.id, team_name: data.team_name },
-      });
+          ],
+          mode: "payment",
+          ui_mode: "embedded_page",
+          return_url: data.returnUrl,
+          payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
+          metadata: { teamId: team.id, team_name: data.team_name },
+        });
+      } catch (innerErr) {
+        console.warn("Embedded checkout failed, falling back to hosted:", innerErr);
+        session = await stripe.checkout.sessions.create({
+          line_items: [
+            {
+              price_data: {
+                currency: "brl",
+                unit_amount: 15000,
+                product_data: { name: "Inscrição — Torneio de Futebol de Rua" },
+              },
+              quantity: 1,
+            },
+          ],
+          mode: "payment",
+          success_url: data.returnUrl,
+          cancel_url: data.returnUrl.split("?")[0],
+          payment_intent_data: { description: `Inscrição equipe: ${data.team_name}` },
+          metadata: { teamId: team.id, team_name: data.team_name },
+        });
+      }
 
-      if (!session.client_secret) throw new Error("Falha ao iniciar checkout");
+      console.log("Stripe session created:", {
+        id: session.id,
+        ui_mode: session.ui_mode,
+        hasClientSecret: !!session.client_secret,
+        hasUrl: !!session.url,
+      });
 
       // Save session id for later reconciliation
       await supabaseAdmin
@@ -94,9 +123,16 @@ export const createRegistrationCheckout = createServerFn({ method: "POST" })
         .update({ stripe_session_id: session.id })
         .eq("id", team.id);
 
-      return { clientSecret: session.client_secret, teamId: team.id };
+      if (session.client_secret) {
+        return { clientSecret: session.client_secret, teamId: team.id };
+      }
+      if (session.url) {
+        return { redirectUrl: session.url, teamId: team.id };
+      }
+      throw new Error("Stripe não retornou client_secret nem URL de checkout");
     } catch (error) {
       console.error("createRegistrationCheckout error:", error);
       return { error: getStripeErrorMessage(error) };
     }
   });
+
