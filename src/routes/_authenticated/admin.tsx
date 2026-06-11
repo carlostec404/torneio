@@ -12,6 +12,7 @@ import {
   generateBracket,
   setMatchWinner,
 } from "@/lib/admin.functions";
+import { getPublicRegistrationInfo, updatePixSettings } from "@/lib/registration.functions";
 import jsPDF from "jspdf";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -42,7 +43,7 @@ type MatchRow = {
   winner_id: string | null;
 };
 
-type Tab = "pending" | "approved" | "bracket" | "admins";
+type Tab = "pending" | "approved" | "bracket" | "admins" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -134,6 +135,7 @@ function AdminPage() {
             ["approved", `Aprovadas (${approved.length})`],
             ["bracket", "Chaveamento"],
             ["admins", "Admins"],
+            ["settings", "Configurações"],
           ] as [Tab, string][]).map(([k, label]) => (
             <button
               key={k}
@@ -191,6 +193,8 @@ function AdminPage() {
         {tab === "bracket" && <BracketTab teams={approved} />}
 
         {tab === "admins" && <AdminsTab />}
+
+        {tab === "settings" && <SettingsTab />}
       </div>
     </main>
   );
