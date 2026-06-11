@@ -197,9 +197,12 @@ function Inscricao() {
                   <label className="block text-xs font-semibold mb-1">Data de nascimento *</label>
                   <input
                     required
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="DD/MM/AAAA"
                     value={a.birth_date}
                     onChange={(e) => updateAthlete(idx, "birth_date", e.target.value)}
+                    maxLength={10}
                     className="w-full rounded border border-black/15 px-3 py-2"
                   />
                 </div>
