@@ -2,7 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import QRCode from "qrcode";
-import { createRegistration } from "@/lib/registration.functions";
+import {
+  createRegistration,
+  getPublicRegistrationInfo,
+} from "@/lib/registration.functions";
 import { buildPixPayload } from "@/lib/pix";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,57 +21,84 @@ export const Route = createFileRoute("/inscricao")({
 
 const PRIMARY = "#E91425";
 const TEXT = "#141414";
-const PIX_KEY = "11092675418";
-const PIX_AMOUNT = 150;
-const PIX_VALUE_LABEL = "R$ 150,00";
+const MIN_ATHLETES = 3;
+const MAX_ATHLETES = 6;
 
 type Athlete = { name: string };
 const emptyAthlete = (): Athlete => ({ name: "" });
 
+type PixInfo = {
+  pixKey: string;
+  pixAmount: number;
+  merchantName: string;
+  merchantCity: string;
+  teamCount: number;
+  maxTeams: number;
+};
+
 function Inscricao() {
   const submit = useServerFn(createRegistration);
+  const loadInfo = useServerFn(getPublicRegistrationInfo);
+
+  const [info, setInfo] = useState<PixInfo | null>(null);
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState("");
   const [captainWhatsapp, setCaptainWhatsapp] = useState("");
-  const [athletes, setAthletes] = useState<Athlete[]>([emptyAthlete()]);
+  const [athletes, setAthletes] = useState<Athlete[]>([
+    emptyAthlete(),
+    emptyAthlete(),
+    emptyAthlete(),
+  ]);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    loadInfo().then(setInfo).catch(() => {});
+  }, [loadInfo]);
+
+  useEffect(() => {
+    if (!info?.pixKey) return;
     const payload = buildPixPayload({
-      key: PIX_KEY,
-      merchantName: "TORNEIO FUTEBOL",
-      merchantCity: "SAO PAULO",
-      amount: PIX_AMOUNT,
+      key: info.pixKey,
+      merchantName: info.merchantName,
+      merchantCity: info.merchantCity,
+      amount: info.pixAmount,
     });
     QRCode.toDataURL(payload, { width: 240, margin: 1 }).then(setQrDataUrl).catch(() => {});
-  }, []);
+  }, [info]);
+
+  const full = !!info && info.teamCount >= info.maxTeams;
+
+  const copyPix = async () => {
+    if (!info?.pixKey) return;
+    await navigator.clipboard.writeText(info.pixKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const updateAthlete = (idx: number, value: string) => {
     setAthletes((prev) => prev.map((a, i) => (i === idx ? { name: value } : a)));
   };
   const addAthlete = () => {
-    if (athletes.length >= 6) return;
+    if (athletes.length >= MAX_ATHLETES) return;
     setAthletes([...athletes, emptyAthlete()]);
   };
   const removeAthlete = (idx: number) => {
-    if (athletes.length <= 1) return;
+    if (athletes.length <= MIN_ATHLETES) return;
     setAthletes(athletes.filter((_, i) => i !== idx));
   };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!file) {
-      setError("Anexe o comprovante do Pix.");
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      setError("O comprovante deve ter no máximo 8 MB.");
-      return;
+    if (!file) return setError("Anexe o comprovante do Pix.");
+    if (file.size > 8 * 1024 * 1024) return setError("O comprovante deve ter no máximo 8 MB.");
+    if (athletes.filter((a) => a.name.trim().length >= 2).length < MIN_ATHLETES) {
+      return setError(`Informe pelo menos ${MIN_ATHLETES} atletas.`);
     }
     setLoading(true);
     try {
@@ -114,21 +144,45 @@ function Inscricao() {
     );
   }
 
+  const pixValueLabel = info
+    ? info.pixAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : "R$ —";
+
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#fcfbf8", color: TEXT }}>
+    <div className="min-h-screen relative" style={{ backgroundColor: "#fcfbf8", color: TEXT }}>
       <header className="px-6 py-4 border-b border-black/5 flex justify-between items-center">
         <Link to="/" className="text-sm font-medium">← Voltar</Link>
         <div className="text-sm font-bold">Inscrição</div>
       </header>
+
+      {full && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg max-w-md p-6 text-center border-2" style={{ borderColor: PRIMARY }}>
+            <h2 className="text-2xl font-extrabold mb-2" style={{ color: PRIMARY }}>Inscrições encerradas</h2>
+            <p className="text-sm mb-4">
+              Atingimos o limite de {info!.maxTeams} equipes inscritas. Agradecemos o interesse!
+            </p>
+            <Link to="/" className="inline-block rounded-full px-6 py-3 font-bold text-white" style={{ backgroundColor: PRIMARY }}>
+              Voltar ao início
+            </Link>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={onSubmit} className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <h1 className="text-3xl font-extrabold">
           Inscreva sua <span style={{ color: PRIMARY }}>equipe</span>
         </h1>
 
+        {info && (
+          <p className="text-xs opacity-70">
+            Vagas: {info.teamCount}/{info.maxTeams}
+          </p>
+        )}
+
         {/* Pix QR */}
         <div className="bg-white rounded-lg p-5 border-2 flex flex-col items-center text-center" style={{ borderColor: PRIMARY }}>
-          <h2 className="font-bold text-lg" style={{ color: PRIMARY }}>Pagamento via Pix — {PIX_VALUE_LABEL}</h2>
+          <h2 className="font-bold text-lg" style={{ color: PRIMARY }}>Pagamento via Pix — {pixValueLabel}</h2>
           <p className="text-sm mt-2">Escaneie o QR Code abaixo com o app do seu banco e anexe o comprovante.</p>
           <div className="mt-4 bg-white p-2 rounded border border-black/10">
             {qrDataUrl ? (
@@ -137,7 +191,16 @@ function Inscricao() {
               <div className="w-[240px] h-[240px] flex items-center justify-center text-xs opacity-60">Gerando QR Code...</div>
             )}
           </div>
-          <p className="text-xs mt-3 opacity-70">Valor: {PIX_VALUE_LABEL}</p>
+          <button
+            type="button"
+            onClick={copyPix}
+            disabled={!info?.pixKey}
+            className="mt-4 rounded-full px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+            style={{ backgroundColor: PRIMARY }}
+          >
+            {copied ? "Chave copiada!" : "Copiar chave Pix"}
+          </button>
+          <p className="text-xs mt-2 opacity-70">Valor: {pixValueLabel}</p>
         </div>
 
         <div className="space-y-4 bg-white rounded-lg p-5 border border-black/10">
@@ -159,17 +222,20 @@ function Inscricao() {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold" style={{ color: PRIMARY }}>Atletas ({athletes.length}/6)</h2>
-            <button type="button" onClick={addAthlete} disabled={athletes.length >= 6} className="text-sm font-semibold disabled:opacity-40" style={{ color: PRIMARY }}>
+            <h2 className="text-xl font-bold" style={{ color: PRIMARY }}>
+              Atletas ({athletes.length}/{MAX_ATHLETES})
+            </h2>
+            <button type="button" onClick={addAthlete} disabled={athletes.length >= MAX_ATHLETES} className="text-sm font-semibold disabled:opacity-40" style={{ color: PRIMARY }}>
               + Adicionar atleta
             </button>
           </div>
+          <p className="text-xs opacity-70">Informe pelo menos {MIN_ATHLETES} atletas.</p>
 
           {athletes.map((a, idx) => (
             <div key={idx} className="bg-white rounded-lg p-5 border border-black/10 space-y-3">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold">Atleta {idx + 1}</h3>
-                {athletes.length > 1 && (
+                {athletes.length > MIN_ATHLETES && (
                   <button type="button" onClick={() => removeAthlete(idx)} className="text-xs text-red-600 hover:underline">Remover</button>
                 )}
               </div>
@@ -197,7 +263,7 @@ function Inscricao() {
           <div className="rounded bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm">{error}</div>
         )}
 
-        <button type="submit" disabled={loading} className="w-full rounded-full px-8 py-4 text-lg font-bold text-white shadow hover:opacity-90 disabled:opacity-50 transition" style={{ backgroundColor: PRIMARY }}>
+        <button type="submit" disabled={loading || full} className="w-full rounded-full px-8 py-4 text-lg font-bold text-white shadow hover:opacity-90 disabled:opacity-50 transition" style={{ backgroundColor: PRIMARY }}>
           {loading ? "Enviando..." : "Enviar inscrição"}
         </button>
 

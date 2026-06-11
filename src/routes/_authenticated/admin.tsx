@@ -12,6 +12,7 @@ import {
   generateBracket,
   setMatchWinner,
 } from "@/lib/admin.functions";
+import { getPublicRegistrationInfo, updatePixSettings } from "@/lib/registration.functions";
 import jsPDF from "jspdf";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -42,7 +43,7 @@ type MatchRow = {
   winner_id: string | null;
 };
 
-type Tab = "pending" | "approved" | "bracket" | "admins";
+type Tab = "pending" | "approved" | "bracket" | "admins" | "settings";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -134,6 +135,7 @@ function AdminPage() {
             ["approved", `Aprovadas (${approved.length})`],
             ["bracket", "Chaveamento"],
             ["admins", "Admins"],
+            ["settings", "Configurações"],
           ] as [Tab, string][]).map(([k, label]) => (
             <button
               key={k}
@@ -191,6 +193,8 @@ function AdminPage() {
         {tab === "bracket" && <BracketTab teams={approved} />}
 
         {tab === "admins" && <AdminsTab />}
+
+        {tab === "settings" && <SettingsTab />}
       </div>
     </main>
   );
@@ -531,6 +535,80 @@ function BracketTab({ teams }: { teams: TeamRow[] }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SettingsTab() {
+  const loadFn = useServerFn(getPublicRegistrationInfo);
+  const saveFn = useServerFn(updatePixSettings);
+  const [pixKey, setPixKey] = useState("");
+  const [pixAmount, setPixAmount] = useState("150");
+  const [merchantName, setMerchantName] = useState("");
+  const [merchantCity, setMerchantCity] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    loadFn().then((d) => {
+      setPixKey(d.pixKey);
+      setPixAmount(String(d.pixAmount));
+      setMerchantName(d.merchantName);
+      setMerchantCity(d.merchantCity);
+    }).catch(() => {});
+  }, [loadFn]);
+
+  const onSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    setBusy(true);
+    try {
+      await saveFn({
+        data: {
+          pixKey: pixKey.trim(),
+          pixAmount: Number(pixAmount) || 0,
+          merchantName: merchantName.trim().toUpperCase(),
+          merchantCity: merchantCity.trim().toUpperCase(),
+        },
+      });
+      setMsg("Configurações salvas. O QR Code da tela de inscrição já reflete a nova chave.");
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Erro");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-black/10 p-5 max-w-xl">
+      <h2 className="font-bold mb-1">Pagamento Pix</h2>
+      <p className="text-xs opacity-70 mb-4">
+        Altere a chave Pix e os dados do recebedor. O QR Code da página de inscrição é gerado automaticamente a partir destas informações.
+      </p>
+      <form onSubmit={onSave} className="space-y-3">
+        <div>
+          <label className="block text-xs font-semibold mb-1">Chave Pix *</label>
+          <input required value={pixKey} onChange={(e) => setPixKey(e.target.value)} maxLength={120} className="w-full rounded border border-black/15 px-3 py-2" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1">Valor da inscrição (R$) *</label>
+          <input required type="number" min={0} step="0.01" value={pixAmount} onChange={(e) => setPixAmount(e.target.value)} className="w-full rounded border border-black/15 px-3 py-2" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold mb-1">Nome do recebedor * (máx 25)</label>
+            <input required value={merchantName} onChange={(e) => setMerchantName(e.target.value)} maxLength={25} className="w-full rounded border border-black/15 px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1">Cidade * (máx 15)</label>
+            <input required value={merchantCity} onChange={(e) => setMerchantCity(e.target.value)} maxLength={15} className="w-full rounded border border-black/15 px-3 py-2" />
+          </div>
+        </div>
+        <button disabled={busy} className="rounded-full px-5 py-2 text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: PRIMARY }}>
+          {busy ? "Salvando..." : "Salvar"}
+        </button>
+        {msg && <p className="text-xs mt-2">{msg}</p>}
+      </form>
     </div>
   );
 }
