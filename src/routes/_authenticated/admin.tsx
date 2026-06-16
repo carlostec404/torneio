@@ -650,3 +650,81 @@ function SettingsTab() {
     </div>
   );
 }
+
+function MatchCard({
+  match,
+  teamLabel,
+  onPickWinner,
+  onSaveScore,
+}: {
+  match: MatchRow;
+  teamLabel: (id: string | null) => string;
+  onPickWinner: (matchId: string, winnerId: string) => void | Promise<void>;
+  onSaveScore: (a: number, b: number) => void | Promise<void>;
+}) {
+  const [a, setA] = useState<string>(match.team_a_score?.toString() ?? "");
+  const [b, setB] = useState<string>(match.team_b_score?.toString() ?? "");
+  const bothTeams = !!(match.team_a_id && match.team_b_id);
+  const hasWinner = !!match.winner_id;
+
+  return (
+    <div className="border border-black/10 rounded overflow-hidden">
+      {([match.team_a_id, match.team_b_id] as (string | null)[]).map((tid, i) => {
+        const isWinner = match.winner_id && match.winner_id === tid;
+        const score = i === 0 ? a : b;
+        const setScore = i === 0 ? setA : setB;
+        return (
+          <div
+            key={i}
+            className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 border-black/5"
+            style={{ backgroundColor: isWinner ? "#dcfce7" : "white" }}
+          >
+            <span
+              className="flex-1 text-xs truncate"
+              style={{ fontWeight: isWinner ? 700 : 400 }}
+              title={teamLabel(tid)}
+            >
+              {teamLabel(tid)}
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              value={score}
+              disabled={!bothTeams || hasWinner}
+              onChange={(e) => setScore(e.target.value)}
+              className="w-12 rounded border border-black/15 px-1 py-0.5 text-xs text-center disabled:bg-black/5"
+              placeholder="-"
+            />
+          </div>
+        );
+      })}
+      {bothTeams && !hasWinner && (
+        <button
+          onClick={() => {
+            const na = parseInt(a, 10);
+            const nb = parseInt(b, 10);
+            if (Number.isNaN(na) || Number.isNaN(nb)) {
+              alert("Informe o placar dos dois times.");
+              return;
+            }
+            if (na === nb) {
+              alert("Empate não é permitido. Defina um placar com vencedor.");
+              return;
+            }
+            onSaveScore(na, nb);
+          }}
+          className="w-full text-[11px] font-bold py-1.5 text-white"
+          style={{ backgroundColor: "#E91425" }}
+        >
+          Salvar placar
+        </button>
+      )}
+      {hasWinner && (match.team_a_score !== null || match.team_b_score !== null) && (
+        <div className="text-[10px] text-center py-1 bg-black/5 font-semibold">
+          Final: {match.team_a_score ?? 0} × {match.team_b_score ?? 0}
+        </div>
+      )}
+    </div>
+  );
+}
