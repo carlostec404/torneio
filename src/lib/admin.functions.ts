@@ -37,6 +37,31 @@ export const rejectTeam = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const deleteTeam = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ teamId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Limpa referências em partidas
+    await supabaseAdmin
+      .from("matches")
+      .update({ team_a_id: null })
+      .eq("team_a_id", data.teamId);
+    await supabaseAdmin
+      .from("matches")
+      .update({ team_b_id: null })
+      .eq("team_b_id", data.teamId);
+    await supabaseAdmin
+      .from("matches")
+      .update({ winner_id: null })
+      .eq("winner_id", data.teamId);
+    await supabaseAdmin.from("athletes").delete().eq("team_id", data.teamId);
+    const { error } = await supabaseAdmin.from("teams").delete().eq("id", data.teamId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const getComprovanteSignedUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ path: z.string().min(1).max(500) }).parse(d))
