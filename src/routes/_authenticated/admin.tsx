@@ -553,27 +553,20 @@ function BracketTab({ teams }: { teams: TeamRow[] }) {
                   {rIdx === rounds.length - 1 ? "Final" : rIdx === rounds.length - 2 ? "Semifinal" : `Rodada ${r.round}`}
                 </div>
                 {r.list.map((m) => (
-                  <div key={m.id} className="border border-black/10 rounded overflow-hidden">
-                    {([m.team_a_id, m.team_b_id] as (string | null)[]).map((tid, i) => {
-                      const isWinner = m.winner_id && m.winner_id === tid;
-                      const canPick = tid && m.team_a_id && m.team_b_id && !m.winner_id;
-                      return (
-                        <button
-                          key={i}
-                          disabled={!canPick}
-                          onClick={() => tid && pickWinner(m.id, tid)}
-                          className="w-full text-left text-xs px-3 py-2 border-b last:border-b-0 border-black/5 disabled:cursor-default"
-                          style={{
-                            backgroundColor: isWinner ? "#dcfce7" : "white",
-                            fontWeight: isWinner ? 700 : 400,
-                          }}
-                          title={canPick ? "Clique para definir vencedor" : ""}
-                        >
-                          {teamLabel(tid)}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <MatchCard
+                    key={m.id}
+                    match={m}
+                    teamLabel={teamLabel}
+                    onPickWinner={pickWinner}
+                    onSaveScore={async (a, b) => {
+                      try {
+                        await scoreFn({ data: { matchId: m.id, teamAScore: a, teamBScore: b } });
+                        await loadMatches();
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : "Erro");
+                      }
+                    }}
+                  />
                 ))}
               </div>
             ))}
