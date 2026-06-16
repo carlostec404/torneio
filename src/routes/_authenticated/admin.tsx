@@ -199,7 +199,23 @@ function AdminPage() {
         )}
 
         {tab === "approved" && (
-          <TeamsList teams={approved} emptyText="Nenhuma equipe aprovada ainda." renderActions={() => null} />
+          <TeamsList
+            teams={approved}
+            emptyText="Nenhuma equipe aprovada ainda."
+            renderActions={(t) => (
+              <button
+                onClick={async () => {
+                  if (!confirm(`Apagar a equipe "${t.team_name}"? Isso remove a equipe, atletas e referências em partidas.`)) return;
+                  await deleteFn({ data: { teamId: t.id } });
+                  await reload();
+                }}
+                className="text-xs font-bold rounded-full px-3 py-1.5 text-white"
+                style={{ backgroundColor: PRIMARY }}
+              >
+                Apagar equipe
+              </button>
+            )}
+          />
         )}
 
         {tab === "bracket" && <BracketTab teams={approved} />}
