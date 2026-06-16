@@ -5,12 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   approveTeam,
   rejectTeam,
+  deleteTeam,
   getComprovanteSignedUrl,
   listAdmins,
   addAdmin,
   removeAdmin,
   generateBracket,
   setMatchWinner,
+  setMatchScore,
 } from "@/lib/admin.functions";
 import { getPublicRegistrationInfo, updatePixSettings } from "@/lib/registration.functions";
 import jsPDF from "jspdf";
