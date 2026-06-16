@@ -62,6 +62,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("pending");
   const [teams, setTeams] = useState<TeamRow[]>([]);
+  const [comprovanteModal, setComprovanteModal] = useState<{ open: boolean; url: string | null }>({ open: false, url: null });
 
   const approveFn = useServerFn(approveTeam);
   const rejectFn = useServerFn(rejectTeam);
@@ -119,7 +120,7 @@ function AdminPage() {
   const openComprovante = async (path: string) => {
     try {
       const { url } = await signedUrlFn({ data: { path } });
-      window.open(url, "_blank");
+      setComprovanteModal({ open: true, url });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erro");
     }
