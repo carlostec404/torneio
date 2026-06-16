@@ -72,23 +72,65 @@ export const listAdmins = createServerFn({ method: "GET" })
 export const addAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ email: z.string().email().max(255) }).parse(d),
+    z
+      .object({
+        email: z.string().email().max(255),
+        password: z.string().min(6).max(128),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: profile, error: pErr } = await supabaseAdmin
+    const email = data.email.toLowerCase();
+
+    const { data: existing } = await supabaseAdmin
       .from("profiles")
       .select("id")
-      .eq("email", data.email.toLowerCase())
+      .eq("email", email)
       .maybeSingle();
-    if (pErr) throw new Error(pErr.message);
-    if (!profile)
-      throw new Error("Usuário não encontrado. Peça que ele crie conta primeiro.");
+
+    let userId = existing?.id as string | undefined;
+
+    if (!userId) {
+      const { data: created, error: cErr } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: data.password,
+        email_confirm: true,
+      });
+      if (cErr || !created.user) throw new Error(cErr?.message ?? "Falha ao criar usuário");
+      userId = created.user.id;
+      await supabaseAdmin
+        .from("profiles")
+        .upsert({ id: userId, email, full_name: "" }, { onConflict: "id" });
+    } else {
+      const { error: uErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: data.password,
+      });
+      if (uErr) throw new Error(uErr.message);
+    }
+
+    await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: true })
+      .eq("id", userId);
+
     const { error } = await supabaseAdmin
       .from("user_roles")
-      .insert({ user_id: profile.id, role: "admin" });
+      .insert({ user_id: userId, role: "admin" });
     if (error && !error.message.includes("duplicate")) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const clearMustChangePassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", context.userId);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
