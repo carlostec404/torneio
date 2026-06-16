@@ -264,6 +264,7 @@ function TeamsList({
 function AdminsTab() {
   const [admins, setAdmins] = useState<{ id: string; email: string }[]>([]);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const listFn = useServerFn(listAdmins);
@@ -281,9 +282,10 @@ function AdminsTab() {
     setMsg(null);
     setBusy(true);
     try {
-      await addFn({ data: { email: email.trim() } });
+      await addFn({ data: { email: email.trim(), password } });
       setEmail("");
-      setMsg("Admin adicionado.");
+      setPassword("");
+      setMsg("Admin cadastrado. No primeiro acesso, ele será solicitado a trocar a senha.");
       await reload();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Erro");
@@ -295,8 +297,10 @@ function AdminsTab() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg border border-black/10 p-5">
-        <h2 className="font-bold mb-3">Adicionar administrador</h2>
-        <p className="text-xs mb-3 opacity-70">A pessoa precisa já ter criado conta na plataforma (e-mail/senha).</p>
+        <h2 className="font-bold mb-3">Cadastrar administrador</h2>
+        <p className="text-xs mb-3 opacity-70">
+          Informe e-mail e uma senha inicial. No primeiro acesso, será obrigatório trocar a senha.
+        </p>
         <form onSubmit={onAdd} className="flex flex-wrap gap-2">
           <input
             type="email"
@@ -306,8 +310,18 @@ function AdminsTab() {
             placeholder="email@dominio.com"
             className="flex-1 min-w-[220px] rounded border border-black/15 px-3 py-2"
           />
+          <input
+            type="text"
+            required
+            minLength={6}
+            maxLength={128}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Senha inicial (mín. 6)"
+            className="flex-1 min-w-[180px] rounded border border-black/15 px-3 py-2"
+          />
           <button disabled={busy} className="rounded-full px-4 py-2 text-sm font-bold text-white disabled:opacity-50" style={{ backgroundColor: PRIMARY }}>
-            {busy ? "..." : "Adicionar"}
+            {busy ? "..." : "Cadastrar"}
           </button>
         </form>
         {msg && <p className="mt-2 text-xs">{msg}</p>}
