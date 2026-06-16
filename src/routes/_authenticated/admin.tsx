@@ -43,6 +43,8 @@ type MatchRow = {
   team_a_id: string | null;
   team_b_id: string | null;
   winner_id: string | null;
+  team_a_score: number | null;
+  team_b_score: number | null;
 };
 
 type Tab = "pending" | "approved" | "bracket" | "admins" | "settings";
