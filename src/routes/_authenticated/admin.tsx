@@ -35,6 +35,7 @@ type TeamRow = {
   id: string;
   team_name: string;
   captain_name: string;
+  captain_whatsapp: string | null;
   status: string;
   paid_at: string | null;
   created_at: string;
@@ -71,7 +72,7 @@ function AdminPage() {
     const { data } = await supabase
       .from("teams")
       .select(
-        "id, team_name, captain_name, status, paid_at, created_at, comprovante_url, seed, athletes(id, name, whatsapp, rg, birth_date)",
+        "id, team_name, captain_name, captain_whatsapp, status, paid_at, created_at, comprovante_url, seed, athletes(id, name, whatsapp, rg, birth_date)",
       )
       .order("created_at", { ascending: false });
     if (data) setTeams(data as TeamRow[]);
