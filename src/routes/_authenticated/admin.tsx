@@ -3,6 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   approveTeam,
   rejectTeam,
   deleteTeam,
@@ -29,6 +35,7 @@ type TeamRow = {
   id: string;
   team_name: string;
   captain_name: string;
+  captain_whatsapp: string | null;
   status: string;
   paid_at: string | null;
   created_at: string;
@@ -55,6 +62,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("pending");
   const [teams, setTeams] = useState<TeamRow[]>([]);
+  const [comprovanteModal, setComprovanteModal] = useState<{ open: boolean; url: string | null }>({ open: false, url: null });
 
   const approveFn = useServerFn(approveTeam);
   const rejectFn = useServerFn(rejectTeam);
@@ -65,7 +73,7 @@ function AdminPage() {
     const { data } = await supabase
       .from("teams")
       .select(
-        "id, team_name, captain_name, status, paid_at, created_at, comprovante_url, seed, athletes(id, name, whatsapp, rg, birth_date)",
+        "id, team_name, captain_name, captain_whatsapp, status, paid_at, created_at, comprovante_url, seed, athletes(id, name, whatsapp, rg, birth_date)",
       )
       .order("created_at", { ascending: false });
     if (data) setTeams(data as TeamRow[]);
@@ -112,7 +120,7 @@ function AdminPage() {
   const openComprovante = async (path: string) => {
     try {
       const { url } = await signedUrlFn({ data: { path } });
-      window.open(url, "_blank");
+      setComprovanteModal({ open: true, url });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erro");
     }
@@ -226,6 +234,19 @@ function AdminPage() {
 
         {tab === "settings" && <SettingsTab />}
       </div>
+
+      <Dialog open={comprovanteModal.open} onOpenChange={(open) => setComprovanteModal({ open, url: open ? comprovanteModal.url : null })}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Comprovante de pagamento</DialogTitle>
+          </DialogHeader>
+          {comprovanteModal.url ? (
+            <img src={comprovanteModal.url} alt="Comprovante" className="w-full rounded-lg border border-black/10" />
+          ) : (
+            <p className="text-sm">Nenhuma imagem carregada.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
@@ -248,7 +269,7 @@ function TeamsList({
           <div className="px-5 py-4 flex flex-wrap gap-3 justify-between items-center">
             <button onClick={() => setExpanded(expanded === t.id ? null : t.id)} className="text-left flex-1 min-w-0">
               <div className="font-bold" style={{ color: PRIMARY }}>{t.team_name}</div>
-              <div className="text-xs">Capitão: {t.captain_name} • {t.athletes.length} atletas</div>
+              <div className="text-xs">Capitão: {t.captain_name}{t.captain_whatsapp ? ` • WhatsApp: ${t.captain_whatsapp}` : ""} • {t.athletes.length} atletas</div>
             </button>
             {renderActions(t)}
           </div>
@@ -257,19 +278,13 @@ function TeamsList({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-left">
-                    <th className="py-2">Nome</th>
-                    <th className="py-2">WhatsApp</th>
-                    <th className="py-2">RG</th>
-                    <th className="py-2">Nascimento</th>
+                    <th className="py-2">Atletas</th>
                   </tr>
                 </thead>
                 <tbody>
                   {t.athletes.map((a) => (
                     <tr key={a.id} className="border-b border-black/5">
                       <td className="py-2">{a.name}</td>
-                      <td className="py-2">{a.whatsapp}</td>
-                      <td className="py-2">{a.rg}</td>
-                      <td className="py-2">{new Date(a.birth_date).toLocaleDateString("pt-BR")}</td>
                     </tr>
                   ))}
                 </tbody>
