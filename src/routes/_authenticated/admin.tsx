@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 const PRIMARY = "#E91425";
 const TEXT = "#141414";
 
-type Athlete = { id: string; name: string; whatsapp: string; rg: string; birth_date: string };
+type Athlete = { id: string; name: string };
 type TeamRow = {
   id: string;
   team_name: string;
@@ -73,7 +73,7 @@ function AdminPage() {
     const { data } = await supabase
       .from("teams")
       .select(
-        "id, team_name, captain_name, captain_whatsapp, status, paid_at, created_at, comprovante_url, seed, athletes(id, name, whatsapp, rg, birth_date)",
+        "id, team_name, captain_name, captain_whatsapp, status, paid_at, created_at, comprovante_url, seed, athletes(id, name)",
       )
       .order("created_at", { ascending: false });
     if (data) setTeams(data as TeamRow[]);
