@@ -234,6 +234,19 @@ function AdminPage() {
 
         {tab === "settings" && <SettingsTab />}
       </div>
+
+      <Dialog open={comprovanteModal.open} onOpenChange={(open) => setComprovanteModal({ open, url: open ? comprovanteModal.url : null })}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Comprovante de pagamento</DialogTitle>
+          </DialogHeader>
+          {comprovanteModal.url ? (
+            <img src={comprovanteModal.url} alt="Comprovante" className="w-full rounded-lg border border-black/10" />
+          ) : (
+            <p className="text-sm">Nenhuma imagem carregada.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
@@ -256,7 +269,7 @@ function TeamsList({
           <div className="px-5 py-4 flex flex-wrap gap-3 justify-between items-center">
             <button onClick={() => setExpanded(expanded === t.id ? null : t.id)} className="text-left flex-1 min-w-0">
               <div className="font-bold" style={{ color: PRIMARY }}>{t.team_name}</div>
-              <div className="text-xs">Capitão: {t.captain_name} • {t.athletes.length} atletas</div>
+              <div className="text-xs">Capitão: {t.captain_name}{t.captain_whatsapp ? ` • WhatsApp: ${t.captain_whatsapp}` : ""} • {t.athletes.length} atletas</div>
             </button>
             {renderActions(t)}
           </div>
@@ -265,19 +278,13 @@ function TeamsList({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-black/10 text-left">
-                    <th className="py-2">Nome</th>
-                    <th className="py-2">WhatsApp</th>
-                    <th className="py-2">RG</th>
-                    <th className="py-2">Nascimento</th>
+                    <th className="py-2">Atletas</th>
                   </tr>
                 </thead>
                 <tbody>
                   {t.athletes.map((a) => (
                     <tr key={a.id} className="border-b border-black/5">
                       <td className="py-2">{a.name}</td>
-                      <td className="py-2">{a.whatsapp}</td>
-                      <td className="py-2">{a.rg}</td>
-                      <td className="py-2">{new Date(a.birth_date).toLocaleDateString("pt-BR")}</td>
                     </tr>
                   ))}
                 </tbody>
