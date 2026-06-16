@@ -34,31 +34,22 @@ export type Database = {
       }
       athletes: {
         Row: {
-          birth_date: string | null
           created_at: string
           id: string
           name: string
-          rg: string | null
           team_id: string
-          whatsapp: string | null
         }
         Insert: {
-          birth_date?: string | null
           created_at?: string
           id?: string
           name: string
-          rg?: string | null
           team_id: string
-          whatsapp?: string | null
         }
         Update: {
-          birth_date?: string | null
           created_at?: string
           id?: string
           name?: string
-          rg?: string | null
           team_id?: string
-          whatsapp?: string | null
         }
         Relationships: [
           {
