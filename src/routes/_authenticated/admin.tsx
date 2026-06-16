@@ -56,6 +56,7 @@ function AdminPage() {
 
   const approveFn = useServerFn(approveTeam);
   const rejectFn = useServerFn(rejectTeam);
+  const deleteFn = useServerFn(deleteTeam);
   const signedUrlFn = useServerFn(getComprovanteSignedUrl);
 
   const reload = async () => {
