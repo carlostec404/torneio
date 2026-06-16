@@ -5,12 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   approveTeam,
   rejectTeam,
+  deleteTeam,
   getComprovanteSignedUrl,
   listAdmins,
   addAdmin,
   removeAdmin,
   generateBracket,
   setMatchWinner,
+  setMatchScore,
 } from "@/lib/admin.functions";
 import { getPublicRegistrationInfo, updatePixSettings } from "@/lib/registration.functions";
 import jsPDF from "jspdf";
@@ -41,6 +43,8 @@ type MatchRow = {
   team_a_id: string | null;
   team_b_id: string | null;
   winner_id: string | null;
+  team_a_score: number | null;
+  team_b_score: number | null;
 };
 
 type Tab = "pending" | "approved" | "bracket" | "admins" | "settings";
@@ -54,6 +58,7 @@ function AdminPage() {
 
   const approveFn = useServerFn(approveTeam);
   const rejectFn = useServerFn(rejectTeam);
+  const deleteFn = useServerFn(deleteTeam);
   const signedUrlFn = useServerFn(getComprovanteSignedUrl);
 
   const reload = async () => {
@@ -196,7 +201,23 @@ function AdminPage() {
         )}
 
         {tab === "approved" && (
-          <TeamsList teams={approved} emptyText="Nenhuma equipe aprovada ainda." renderActions={() => null} />
+          <TeamsList
+            teams={approved}
+            emptyText="Nenhuma equipe aprovada ainda."
+            renderActions={(t) => (
+              <button
+                onClick={async () => {
+                  if (!confirm(`Apagar a equipe "${t.team_name}"? Isso remove a equipe, atletas e referências em partidas.`)) return;
+                  await deleteFn({ data: { teamId: t.id } });
+                  await reload();
+                }}
+                className="text-xs font-bold rounded-full px-3 py-1.5 text-white"
+                style={{ backgroundColor: PRIMARY }}
+              >
+                Apagar equipe
+              </button>
+            )}
+          />
         )}
 
         {tab === "bracket" && <BracketTab teams={approved} />}
@@ -365,6 +386,7 @@ function BracketTab({ teams }: { teams: TeamRow[] }) {
   const [busy, setBusy] = useState(false);
   const genFn = useServerFn(generateBracket);
   const winFn = useServerFn(setMatchWinner);
+  const scoreFn = useServerFn(setMatchScore);
 
   const teamMap = useMemo(() => {
     const m: Record<string, TeamRow> = {};
@@ -375,7 +397,7 @@ function BracketTab({ teams }: { teams: TeamRow[] }) {
   const loadMatches = async () => {
     const { data } = await supabase
       .from("matches")
-      .select("id, round, position, team_a_id, team_b_id, winner_id")
+      .select("id, round, position, team_a_id, team_b_id, winner_id, team_a_score, team_b_score")
       .order("round")
       .order("position");
     if (data) setMatches(data as MatchRow[]);
@@ -531,27 +553,20 @@ function BracketTab({ teams }: { teams: TeamRow[] }) {
                   {rIdx === rounds.length - 1 ? "Final" : rIdx === rounds.length - 2 ? "Semifinal" : `Rodada ${r.round}`}
                 </div>
                 {r.list.map((m) => (
-                  <div key={m.id} className="border border-black/10 rounded overflow-hidden">
-                    {([m.team_a_id, m.team_b_id] as (string | null)[]).map((tid, i) => {
-                      const isWinner = m.winner_id && m.winner_id === tid;
-                      const canPick = tid && m.team_a_id && m.team_b_id && !m.winner_id;
-                      return (
-                        <button
-                          key={i}
-                          disabled={!canPick}
-                          onClick={() => tid && pickWinner(m.id, tid)}
-                          className="w-full text-left text-xs px-3 py-2 border-b last:border-b-0 border-black/5 disabled:cursor-default"
-                          style={{
-                            backgroundColor: isWinner ? "#dcfce7" : "white",
-                            fontWeight: isWinner ? 700 : 400,
-                          }}
-                          title={canPick ? "Clique para definir vencedor" : ""}
-                        >
-                          {teamLabel(tid)}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <MatchCard
+                    key={m.id}
+                    match={m}
+                    teamLabel={teamLabel}
+                    onPickWinner={pickWinner}
+                    onSaveScore={async (a, b) => {
+                      try {
+                        await scoreFn({ data: { matchId: m.id, teamAScore: a, teamBScore: b } });
+                        await loadMatches();
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : "Erro");
+                      }
+                    }}
+                  />
                 ))}
               </div>
             ))}
@@ -632,6 +647,84 @@ function SettingsTab() {
         </button>
         {msg && <p className="text-xs mt-2">{msg}</p>}
       </form>
+    </div>
+  );
+}
+
+function MatchCard({
+  match,
+  teamLabel,
+  onPickWinner,
+  onSaveScore,
+}: {
+  match: MatchRow;
+  teamLabel: (id: string | null) => string;
+  onPickWinner: (matchId: string, winnerId: string) => void | Promise<void>;
+  onSaveScore: (a: number, b: number) => void | Promise<void>;
+}) {
+  const [a, setA] = useState<string>(match.team_a_score?.toString() ?? "");
+  const [b, setB] = useState<string>(match.team_b_score?.toString() ?? "");
+  const bothTeams = !!(match.team_a_id && match.team_b_id);
+  const hasWinner = !!match.winner_id;
+
+  return (
+    <div className="border border-black/10 rounded overflow-hidden">
+      {([match.team_a_id, match.team_b_id] as (string | null)[]).map((tid, i) => {
+        const isWinner = match.winner_id && match.winner_id === tid;
+        const score = i === 0 ? a : b;
+        const setScore = i === 0 ? setA : setB;
+        return (
+          <div
+            key={i}
+            className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 border-black/5"
+            style={{ backgroundColor: isWinner ? "#dcfce7" : "white" }}
+          >
+            <span
+              className="flex-1 text-xs truncate"
+              style={{ fontWeight: isWinner ? 700 : 400 }}
+              title={teamLabel(tid)}
+            >
+              {teamLabel(tid)}
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              value={score}
+              disabled={!bothTeams || hasWinner}
+              onChange={(e) => setScore(e.target.value)}
+              className="w-12 rounded border border-black/15 px-1 py-0.5 text-xs text-center disabled:bg-black/5"
+              placeholder="-"
+            />
+          </div>
+        );
+      })}
+      {bothTeams && !hasWinner && (
+        <button
+          onClick={() => {
+            const na = parseInt(a, 10);
+            const nb = parseInt(b, 10);
+            if (Number.isNaN(na) || Number.isNaN(nb)) {
+              alert("Informe o placar dos dois times.");
+              return;
+            }
+            if (na === nb) {
+              alert("Empate não é permitido. Defina um placar com vencedor.");
+              return;
+            }
+            onSaveScore(na, nb);
+          }}
+          className="w-full text-[11px] font-bold py-1.5 text-white"
+          style={{ backgroundColor: "#E91425" }}
+        >
+          Salvar placar
+        </button>
+      )}
+      {hasWinner && (match.team_a_score !== null || match.team_b_score !== null) && (
+        <div className="text-[10px] text-center py-1 bg-black/5 font-semibold">
+          Final: {match.team_a_score ?? 0} × {match.team_b_score ?? 0}
+        </div>
+      )}
     </div>
   );
 }

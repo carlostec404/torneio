@@ -37,6 +37,31 @@ export const rejectTeam = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const deleteTeam = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ teamId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Limpa referências em partidas
+    await supabaseAdmin
+      .from("matches")
+      .update({ team_a_id: null })
+      .eq("team_a_id", data.teamId);
+    await supabaseAdmin
+      .from("matches")
+      .update({ team_b_id: null })
+      .eq("team_b_id", data.teamId);
+    await supabaseAdmin
+      .from("matches")
+      .update({ winner_id: null })
+      .eq("winner_id", data.teamId);
+    await supabaseAdmin.from("athletes").delete().eq("team_id", data.teamId);
+    const { error } = await supabaseAdmin.from("teams").delete().eq("id", data.teamId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const getComprovanteSignedUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ path: z.string().min(1).max(500) }).parse(d))
@@ -265,4 +290,40 @@ export const setMatchWinner = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await advanceWinner(supabaseAdmin, data.matchId, data.winnerId);
     return { ok: true };
+  });
+
+export const setMatchScore = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        matchId: z.string().uuid(),
+        teamAScore: z.number().int().min(0).max(999),
+        teamBScore: z.number().int().min(0).max(999),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: m, error: mErr } = await supabaseAdmin
+      .from("matches")
+      .select("id, round, position, team_a_id, team_b_id")
+      .eq("id", data.matchId)
+      .single();
+    if (mErr || !m) throw new Error(mErr?.message ?? "Partida não encontrada");
+    if (!m.team_a_id || !m.team_b_id)
+      throw new Error("Os dois times precisam estar definidos para registrar placar.");
+    if (data.teamAScore === data.teamBScore)
+      throw new Error("Placar empatado não é permitido em mata-mata. Defina um vencedor.");
+
+    await supabaseAdmin
+      .from("matches")
+      .update({ team_a_score: data.teamAScore, team_b_score: data.teamBScore })
+      .eq("id", data.matchId);
+
+    const winnerId = data.teamAScore > data.teamBScore ? m.team_a_id : m.team_b_id;
+    await advanceWinner(supabaseAdmin, data.matchId, winnerId);
+    return { ok: true, winnerId };
   });
