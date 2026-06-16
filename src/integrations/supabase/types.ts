@@ -77,7 +77,9 @@ export type Database = {
           position: number
           round: number
           team_a_id: string | null
+          team_a_score: number | null
           team_b_id: string | null
+          team_b_score: number | null
           updated_at: string
           winner_id: string | null
         }
@@ -87,7 +89,9 @@ export type Database = {
           position: number
           round: number
           team_a_id?: string | null
+          team_a_score?: number | null
           team_b_id?: string | null
+          team_b_score?: number | null
           updated_at?: string
           winner_id?: string | null
         }
@@ -97,7 +101,9 @@ export type Database = {
           position?: number
           round?: number
           team_a_id?: string | null
+          team_a_score?: number | null
           team_b_id?: string | null
+          team_b_score?: number | null
           updated_at?: string
           winner_id?: string | null
         }
