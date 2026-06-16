@@ -386,6 +386,7 @@ function BracketTab({ teams }: { teams: TeamRow[] }) {
   const [busy, setBusy] = useState(false);
   const genFn = useServerFn(generateBracket);
   const winFn = useServerFn(setMatchWinner);
+  const scoreFn = useServerFn(setMatchScore);
 
   const teamMap = useMemo(() => {
     const m: Record<string, TeamRow> = {};
@@ -396,7 +397,7 @@ function BracketTab({ teams }: { teams: TeamRow[] }) {
   const loadMatches = async () => {
     const { data } = await supabase
       .from("matches")
-      .select("id, round, position, team_a_id, team_b_id, winner_id")
+      .select("id, round, position, team_a_id, team_b_id, winner_id, team_a_score, team_b_score")
       .order("round")
       .order("position");
     if (data) setMatches(data as MatchRow[]);
