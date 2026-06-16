@@ -73,6 +73,15 @@ function AdminPage() {
         navigate({ to: "/auth" });
         return;
       }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("must_change_password")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      if (profile?.must_change_password) {
+        navigate({ to: "/change-password" });
+        return;
+      }
       const { data: roleRow } = await supabase
         .from("user_roles")
         .select("role")
